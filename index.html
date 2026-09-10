@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1c1e">
+  <title>Hard-Gate</title>
+  <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Hard-Gate%22%2C%22short_name%22%3A%22Hard-Gate%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%231a1c1e%22%2C%22theme_color%22%3A%22%231a1c1e%22%7D">
+  <style>
+    :root {
+      --bg: #121316;
+      --surface: #1e1f24;
+      --surface-variant: #2a2c33;
+      --primary: #80cbc4;
+      --primary-container: #004d40;
+      --on-surface: #e2e2e6;
+      --text-muted: #9aa0a6;
+      --danger: #ef5350;
+      --danger-container: #5c1d1d;
+      --success: #66bb6a;
+      --accent: #82b1ff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background-color: var(--bg); color: var(--on-surface); min-height: 100vh; padding-bottom: 75px; user-select: none; }
+    
+    header { padding: 18px 20px 10px; background: var(--surface); border-bottom: 1px solid var(--surface-variant); }
+    .header-top { display: flex; justify-content: space-between; align-items: center; }
+    h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: 0.5px; }
+    .tz-badge { font-size: 0.75rem; background: var(--surface-variant); padding: 3px 8px; border-radius: 12px; color: var(--primary); }
+    .date-sub { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
+
+    .date-navigator { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--surface-variant); font-size: 0.85rem; }
+    .nav-btn { background: var(--surface-variant); border: none; color: var(--on-surface); padding: 4px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    .is-backfilled { color: #ffb74d; font-weight: 600; }
+
+    .screen { display: none; padding: 16px; }
+    .screen.active { display: block; }
+
+    /* Screen 1: Scorecard */
+    .card { background: var(--surface); border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--surface-variant); }
+    .item-card { display: flex; justify-content: space-between; align-items: center; }
+    .item-name { font-size: 0.95rem; font-weight: 600; max-width: 60%; }
+    .toggle-group { display: flex; gap: 8px; }
+    .btn-toggle { border: 1px solid var(--surface-variant); background: transparent; color: var(--text-muted); padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; cursor: pointer; }
+    .btn-toggle.active-yes { background: var(--primary-container); color: var(--primary); border-color: var(--primary); }
+    .btn-toggle.active-no { background: var(--danger-container); color: var(--danger); border-color: var(--danger); }
+
+    /* Screen 2: Radar Chart */
+    .radar-container { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    svg { touch-action: none; overflow: visible; }
+    .radar-label { font-size: 11px; fill: var(--on-surface); text-anchor: middle; font-weight: 600; }
+    .radar-subtext { font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 10px; }
+
+    /* Screen 3: Self-Talk */
+    .field-group { margin-bottom: 16px; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--primary); margin-bottom: 6px; }
+    textarea, input[type="text"] { width: 100%; background: var(--surface-variant); border: 1px solid transparent; border-radius: 8px; color: var(--on-surface); padding: 10px; font-size: 0.9rem; }
+    textarea:focus, input[type="text"]:focus { outline: none; border-color: var(--primary); }
+    .slider-container { display: flex; align-items: center; gap: 12px; }
+    input[type="range"] { flex: 1; accent-color: var(--primary); }
+    .slider-val { font-size: 1.1rem; font-weight: 700; width: 30px; text-align: center; }
+
+    /* Screen 4: Configuration */
+    .add-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .btn-add { background: var(--primary); color: #003730; border: none; border-radius: 8px; font-weight: 700; padding: 0 16px; cursor: pointer; }
+
+    /* Bottom Nav Bar */
+    nav { position: fixed; bottom: 0; left: 0; right: 0; height: 65px; background: var(--surface); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid var(--surface-variant); }
+    .nav-tab { display: flex; flex-direction: column; align-items: center; background: none; border: none; color: var(--text-muted); font-size: 0.72rem; cursor: pointer; gap: 4px; }
+    .nav-tab.active { color: var(--primary); font-weight: bold; }
+    .nav-tab svg { width: 22px; height: 22px; fill: currentColor; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-top">
+      <h1>Hard-Gate</h1>
+      <span class="tz-badge" id="tzDisplay">AEST/AEDT</span>
+    </div>
+    <div class="date-sub" id="fullDateDisplay">Loading Melbourne date...</div>
+  </header>
+
+  <div class="date-navigator">
+    <button class="nav-btn" onclick="changeDate(-1)">&larr; Prev Day</button>
+    <span id="navDateStatus">Today</span>
+    <button class="nav-btn" id="nextDayBtn" onclick="changeDate(1)">Next Day &rarr;</button>
+  </div>
+
+  <!-- Screen 1: Scorecard -->
+  <main id="screenScorecard" class="screen active">
+    <div id="itemList"></div>
+  </main>
+
+  <!-- Screen 2: Interactive Radar -->
+  <main id="screenRadar" class="screen">
+    <div class="card radar-container">
+      <svg id="radarSvg" width="340" height="340" viewBox="-170 -170 340 340"></svg>
+      <div class="radar-subtext">DRAG ANY POINT TO RATE YOURSELF · 1–10</div>
+    </div>
+  </main>
+
+  <!-- Screen 3: Self-Talk & Planning -->
+  <main id="screenSelfTalk" class="screen">
+    <div class="card">
+      <div class="field-group">
+        <label>Identity & Purpose</label>
+        <textarea id="identityInput" rows="3" placeholder="Who are you showing up as today?"></textarea>
+      </div>
+      <div class="field-group">
+        <label>Daily Energy Track (1 - 10)</label>
+        <div class="slider-container">
+          <input type="range" id="energySlider" min="1" max="10" value="7" oninput="updateEnergyDisplay(this.value)">
+          <span class="slider-val" id="energyVal">7</span>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Top 3 Actions for the Day</label>
+        <input type="text" id="action1" placeholder="1. Non-negotiable action" style="margin-bottom:6px;">
+        <input type="text" id="action2" placeholder="2. Secondary focus" style="margin-bottom:6px;">
+        <input type="text" id="action3" placeholder="3. Strategic task">
+      </div>
+      <button class="btn-add" style="width:100%; height:40px;" onclick="saveSelfTalk()">Save Snapshot</button>
+    </div>
+  </main>
+
+  <!-- Screen 4: Configuration -->
+  <main id="screenConfig" class="screen">
+    <div class="card">
+      <label>Add New Habit / Rule</label>
+      <div class="add-row">
+        <input type="text" id="newItemInput" placeholder="e.g. 30m Deep Work">
+        <button class="btn-add" onclick="addNewItem()">Add</button>
+      </div>
+      <label style="margin-top: 14px;">Notification Permissions</label>
+      <button class="btn-add" style="width:100%; height:36px; background: var(--surface-variant); color: var(--on-surface);" onclick="requestNotifs()">Enable Push Reminders</button>
+    </div>
+    <div id="configItemList"></div>
+  </main>
+
+  <nav>
+    <button class="nav-tab active" onclick="switchScreen('screenScorecard', this)">
+      <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+      Scores
+    </button>
+    <button class="nav-tab" onclick="switchScreen('screenRadar', this)">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+      Radar
+    </button>
+    <button class="nav-tab" onclick="switchScreen('screenSelfTalk', this)">
+      <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      Self-Talk
+    </button>
+    <button class="nav-tab" onclick="switchScreen('screenConfig', this)">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      Config
+    </button>
+  </nav>
+
+  <script>
+    const TIMEZONE = 'Australia/Melbourne';
+    const DEFAULT_ITEMS = [
+      { id: '1', title: 'Morning 30-min walk / workout', notif: true, time: '07:00' },
+      { id: '2', title: 'Hydration goal (2.5L)', notif: true, time: '14:00' },
+      { id: '3', title: 'Deep Work non-negotiables', notif: false, time: '17:00' }
+    ];
+    const RADAR_AXES = ['PURPOSE', 'ENERGY', 'PRODUCTIVITY', 'HABITS', 'LEADERSHIP', 'RELATIONSHIPS', 'MENTAL TOUGHNESS', 'STOICISM'];
+    const AXIS_COLORS = ['#66bb6a', '#ffee58', '#42a5f5', '#8d6e63', '#b0bec5', '#e64a19', '#bcaaa4', '#d7ccc8'];
+
+    let currentDateOffset = 0;
+
+    function getMelbourneDate(offset = 0) {
+      const now = new Date();
+      now.setDate(now.getDate() + offset);
+      const parts = new Intl.DateTimeFormat('en-AU', {
+        timeZone: TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit'
+      }).formatToParts(now);
+      const y = parts.find(p => p.type === 'year').value;
+      const m = parts.find(p => p.type === 'month').value;
+      const d = parts.find(p => p.type === 'day').value;
+      return `${y}-${m}-${d}`;
+    }
+
+    function initStorage() {
+      if (!localStorage.getItem('hg_items')) {
+        localStorage.setItem('hg_items', JSON.stringify(DEFAULT_ITEMS));
+      }
+      if (!localStorage.getItem('hg_scores')) localStorage.setItem('hg_scores', JSON.stringify({}));
+      if (!localStorage.getItem('hg_audit')) localStorage.setItem('hg_audit', JSON.stringify([]));
+      if (!localStorage.getItem('hg_radar')) localStorage.setItem('hg_radar', JSON.stringify({}));
+      if (!localStorage.getItem('hg_selftalk')) localStorage.setItem('hg_selftalk', JSON.stringify({}));
+    }
+
+    function renderDateInfo() {
+      const today = getMelbourneDate(0);
+      const viewing = getMelbourneDate(currentDateOffset);
+      const isPast = viewing < today;
+
+      const dateObj = new Date();
+      dateObj.setDate(dateObj.getDate() + currentDateOffset);
+      document.getElementById('fullDateDisplay').textContent = new Intl.DateTimeFormat('en-AU', {
+        timeZone: TIMEZONE, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+      }).format(dateObj);
+
+      const navStatus = document.getElementById('navDateStatus');
+      if (currentDateOffset === 0) {
+        navStatus.textContent = 'Today (Melbourne)';
+        navStatus.className = '';
+      } else {
+        navStatus.textContent = `${viewing} ${isPast ? '[Backfill Mode]' : ''}`;
+        navStatus.className = isPast ? 'is-backfilled' : '';
+      }
+      document.getElementById('nextDayBtn').disabled = currentDateOffset >= 0;
+    }
+
+    function renderScorecard() {
+      const dateKey = getMelbourneDate(currentDateOffset);
+      const items = JSON.parse(localStorage.getItem('hg_items'));
+      const scores = JSON.parse(localStorage.getItem('hg_scores'))[dateKey] || {};
+      const container = document.getElementById('itemList');
+      container.innerHTML = '';
+
+      items.forEach(item => {
+        const currentVal = scores[item.id] !== undefined ? scores[item.id] : 'NO';
+        const card = document.createElement('div');
+        card.className = 'card item-card';
+        card.innerHTML = `
+          <div class="item-name">${item.title}</div>
+          <div class="toggle-group">
+            <button class="btn-toggle ${currentVal === 'YES' ? 'active-yes' : ''}" onclick="setScore('${item.id}', 'YES')">YES</button>
+            <button class="btn-toggle ${currentVal === 'NO' ? 'active-no' : ''}" onclick="setScore('${item.id}', 'NO')">NO</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function setScore(itemId, value) {
+      const dateKey = getMelbourneDate(currentDateOffset);
+      const allScores = JSON.parse(localStorage.getItem('hg_scores'));
+      if (!allScores[dateKey]) allScores[dateKey] = {};
+      const prevVal = allScores[dateKey][itemId] || 'NO';
+
+      allScores[dateKey][itemId] = value;
+      localStorage.setItem('hg_scores', JSON.stringify(allScores));
+
+      if (currentDateOffset < 0) {
+        const audit = JSON.parse(localStorage.getItem('hg_audit'));
+        audit.push({
+          targetDate: dateKey,
+          itemId,
+          prev: prevVal,
+          updated: value,
+          timestamp: new Date().toISOString(),
+          offsetDays: currentDateOffset
+        });
+        localStorage.setItem('hg_audit', JSON.stringify(audit));
+      }
+      renderScorecard();
+    }
+
+    /* Radar Chart Engine */
+    let radarScores = [8, 7, 7, 8, 6, 9, 6, 7];
+    const RADIUS = 110;
+
+    function renderRadar() {
+      const svg = document.getElementById('radarSvg');
+      svg.innerHTML = '';
+      const totalAxes = RADAR_AXES.length;
+      const angleStep = (Math.PI * 2) / totalAxes;
+
+      for (let r = 1; r <= 5; r++) {
+        let pts = [];
+        for (let i = 0; i < totalAxes; i++) {
+          const angle = i * angleStep - Math.PI / 2;
+          const dist = (RADIUS / 5) * r;
+          pts.push(`${dist * Math.cos(angle)},${dist * Math.sin(angle)}`);
+        }
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        poly.setAttribute('points', pts.join(' '));
+        poly.setAttribute('fill', 'none');
+        poly.setAttribute('stroke', '#333842');
+        poly.setAttribute('stroke-width', '1');
+        svg.appendChild(poly);
+      }
+
+      for (let i = 0; i < totalAxes; i++) {
+        const angle = i * angleStep - Math.PI / 2;
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', 0); line.setAttribute('y1', 0);
+        line.setAttribute('x2', RADIUS * Math.cos(angle));
+        line.setAttribute('y2', RADIUS * Math.sin(angle));
+        line.setAttribute('stroke', '#333842');
+        svg.appendChild(line);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', (RADIUS + 22) * Math.cos(angle));
+        text.setAttribute('y', (RADIUS + 22) * Math.sin(angle) + 4);
+        text.setAttribute('class', 'radar-label');
+        text.textContent = RADAR_AXES[i];
+        svg.appendChild(text);
+      }
+
+      let dataPts = [];
+      for (let i = 0; i < totalAxes; i++) {
+        const angle = i * angleStep - Math.PI / 2;
+        const dist = (RADIUS / 10) * radarScores[i];
+        dataPts.push(`${dist * Math.cos(angle)},${dist * Math.sin(angle)}`);
+      }
+      const dataPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      dataPoly.setAttribute('points', dataPts.join(' '));
+      dataPoly.setAttribute('fill', 'rgba(128, 203, 196, 0.25)');
+      dataPoly.setAttribute('stroke', '#80cbc4');
+      dataPoly.setAttribute('stroke-width', '2.5');
+      svg.appendChild(dataPoly);
+
+      for (let i = 0; i < totalAxes; i++) {
+        const angle = i * angleStep - Math.PI / 2;
+        const dist = (RADIUS / 10) * radarScores[i];
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', dist * Math.cos(angle));
+        circle.setAttribute('cy', dist * Math.sin(angle));
+        circle.setAttribute('r', '7');
+        circle.setAttribute('fill', AXIS_COLORS[i]);
+        circle.setAttribute('stroke', '#ffffff');
+        circle.setAttribute('stroke-width', '1.5');
+        circle.style.cursor = 'pointer';
+
+        attachDrag(circle, i);
+        svg.appendChild(circle);
+      }
+    }
+
+    function attachDrag(element, axisIndex) {
+      function move(e) {
+        const rect = document.getElementById('radarSvg').getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const dx = clientX - (rect.left + rect.width / 2);
+        const dy = clientY - (rect.top + rect.height / 2);
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        let score = Math.round((dist / RADIUS) * 10);
+        score = Math.max(1, Math.min(10, score));
+        radarScores[axisIndex] = score;
+        renderRadar();
+      }
+      function stop() {
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', stop);
+        window.removeEventListener('touchmove', move);
+        window.removeEventListener('touchend', stop);
+      }
+      element.addEventListener('mousedown', () => {
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', stop);
+      });
+      element.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        window.addEventListener('touchmove', move);
+        window.addEventListener('touchend', stop);
+      });
+    }
+
+    function switchScreen(screenId, tabBtn) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+      tabBtn.classList.add('active');
+      if (screenId === 'screenRadar') renderRadar();
+      if (screenId === 'screenConfig') renderConfig();
+    }
+
+    function changeDate(delta) {
+      currentDateOffset += delta;
+      renderDateInfo();
+      renderScorecard();
+    }
+
+    function updateEnergyDisplay(val) {
+      document.getElementById('energyVal').textContent = val;
+    }
+
+    function saveSelfTalk() {
+      const dateKey = getMelbourneDate(currentDateOffset);
+      const data = {
+        identity: document.getElementById('identityInput').value,
+        energy: document.getElementById('energySlider').value,
+        actions: [
+          document.getElementById('action1').value,
+          document.getElementById('action2').value,
+          document.getElementById('action3').value
+        ]
+      };
+      const all = JSON.parse(localStorage.getItem('hg_selftalk'));
+      all[dateKey] = data;
+      localStorage.setItem('hg_selftalk', JSON.stringify(all));
+      alert('Snapshot recorded.');
+    }
+
+    function renderConfig() {
+      const items = JSON.parse(localStorage.getItem('hg_items'));
+      const list = document.getElementById('configItemList');
+      list.innerHTML = '';
+      items.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'card item-card';
+        div.innerHTML = `
+          <div>
+            <strong>${item.title}</strong>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Alert: ${item.notif ? item.time : 'Off'}</div>
+          </div>
+          <button style="background:none; border:none; color:var(--danger); cursor:pointer;" onclick="deleteItem(${index})">Remove</button>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function addNewItem() {
+      const input = document.getElementById('newItemInput');
+      if (!input.value.trim()) return;
+      const items = JSON.parse(localStorage.getItem('hg_items'));
+      items.push({ id: Date.now().toString(), title: input.value.trim(), notif: false, time: '09:00' });
+      localStorage.setItem('hg_items', JSON.stringify(items));
+      input.value = '';
+      renderConfig();
+      renderScorecard();
+    }
+
+    function deleteItem(index) {
+      const items = JSON.parse(localStorage.getItem('hg_items'));
+      items.splice(index, 1);
+      localStorage.setItem('hg_items', JSON.stringify(items));
+      renderConfig();
+      renderScorecard();
+    }
+
+    function requestNotifs() {
+      if ('Notification' in window) {
+        Notification.requestPermission().then(permission => {
+          alert('Notification status: ' + permission);
+        });
+      } else {
+        alert('Notifications not supported in this browser wrapper.');
+      }
+    }
+
+    initStorage();
+    renderDateInfo();
+    renderScorecard();
+  </script>
+</body>
+</html>
