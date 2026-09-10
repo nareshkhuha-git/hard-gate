@@ -30,15 +30,22 @@ jobs:
           mkdir -p app/src/main/java/com/hardgate/app
           mkdir -p app/src/main/res/values
 
-          # Verify index.html exists in repo root
+          # Copy index.html into Android app assets for offline execution
           if [ -f "index.html" ]; then
             cp index.html app/src/main/assets/index.html
           else
-            echo "::error ::index.html was not found in the root directory! Please ensure index.html is committed."
+            echo "::error ::index.html was not found in the repository root!"
             exit 1
           fi
 
-          # Create root settings.gradle
+          # 1. Create gradle.properties (Enables AndroidX support)
+          cat << 'EOF' > gradle.properties
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          EOF
+
+          # 2. Create root settings.gradle
           cat << 'EOF' > settings.gradle
           pluginManagement {
               repositories {
@@ -58,7 +65,7 @@ jobs:
           include ':app'
           EOF
 
-          # Create root build.gradle
+          # 3. Create root build.gradle
           cat << 'EOF' > build.gradle
           plugins {
               id 'com.android.application' version '8.2.2' apply false
@@ -66,7 +73,7 @@ jobs:
           }
           EOF
 
-          # Create app/build.gradle
+          # 4. Create app/build.gradle
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -110,7 +117,7 @@ jobs:
           }
           EOF
 
-          # Create AndroidManifest.xml
+          # 5. Create AndroidManifest.xml
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -136,7 +143,7 @@ jobs:
           </manifest>
           EOF
 
-          # Create MainActivity.kt
+          # 6. Create MainActivity.kt
           cat << 'EOF' > app/src/main/java/com/hardgate/app/MainActivity.kt
           package com.hardgate.app
 
